@@ -1,0 +1,26 @@
+.chart-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 20px;
+    padding: 10px;
+  }
+  
+  .graph-box {
+    background-color: #1e1e1e;
+    border-radius: 10px;
+    padding: 10px;
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.3);
+    height: 450px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  
+  .graph-box .js-plotly-plot {
+    height: 300px !important; /* Prevent stretching */
+  }
+  
+  h4 {
+    color: white;
+  }
+  
