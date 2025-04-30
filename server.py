@@ -40,36 +40,22 @@ def calculate_crc16(data: bytes) -> int:
 
 @app.route("/data", methods=["POST"])
 def receive_data():
-    raw_data = request.get_data()
-
-    if len(raw_data) != 19:
-        return jsonify({"error": f"Invalid packet size. Received {len(raw_data)} bytes."}), 400
-
-    identifier = raw_data[0]
-    if identifier != 0xAA:
-        return jsonify({"error": "Invalid identifier."}), 400
-
-    payload = raw_data[:-2]
-    received_crc = int.from_bytes(raw_data[-2:], byteorder='little')
-    calculated_crc = calculate_crc16(payload)
-
-    if calculated_crc != received_crc:
-        return jsonify({"error": "CRC check failed."}), 400
-
     try:
-        if raw_data[1:3] != b'T:' or raw_data[9:11] != b'C:':
-            return jsonify({"error": "Invalid format for labels T: or C:"}), 400
+        data = request.get_json()
 
-        voltage_str = raw_data[3:9].decode('ascii').replace(',', '.')
-        current_str = raw_data[11:17].decode('ascii').replace(',', '.')
+        if not data or "tensao" not in data or "corrente" not in data:
+            return jsonify({"error": "Campos 'tensao' e 'corrente' são obrigatórios."}), 400
 
-        voltage = float(voltage_str)
-        current = float(current_str)
+        voltage = float(data["tensao"])
+        current = float(data["corrente"])
         power = voltage * current
+
+        # Mensagem no console indicando que os dados foram recebidos
+        print(f"Dados recebidos da ESP: tensão={voltage}V, corrente={current}A, potência={power}W")
 
         # Get current Brazil timezone time
         brazil_time = datetime.now(BRAZIL_TZ)
-        
+
         # Store with Brazil timezone timestamp
         cursor.execute("""
             INSERT INTO power_log (timestamp, power_watts, current_a, voltage_v)
@@ -78,7 +64,7 @@ def receive_data():
         conn.commit()
 
         return jsonify({
-            "message": "Data received successfully!",
+            "message": "Dados recebidos com sucesso!",
             "timestamp": brazil_time.isoformat(),
             "values": {
                 "voltage_v": voltage,
@@ -89,6 +75,7 @@ def receive_data():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 def handle_exit(sig, frame):
     print("\nShutting down server safely...")
