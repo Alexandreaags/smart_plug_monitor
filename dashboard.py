@@ -52,7 +52,7 @@ app.layout = html.Div(
         ),
         dcc.Interval(
             id="interval-component",
-            interval=1000,  # Atualizar a cada 1 segundo
+            interval=1000,  # Update every 1 second
             n_intervals=0,
         ),
         html.Div(
@@ -127,6 +127,27 @@ app.layout = html.Div(
                 ),
             ],
             className="chart-container",
+        ),
+        # New Section: Energy Impact Simulation
+        html.Div(
+            [
+                html.H3("Energy Impact Simulation"),
+                html.Div(
+                    [
+                        html.Label("Adjust simulated operating hours (positive for extra hours, negative for fewer):"),
+                        dcc.Slider(
+                            id="sim-hours",
+                            min=-10,
+                            max=10,
+                            step=0.5,
+                            value=0,
+                            marks={i: f"{i}h" for i in range(-10, 11, 5)},
+                        ),
+                    ],
+                    style={"margin": "20px 0"},
+                ),
+                dcc.Graph(id="simulation-graph", config={"displayModeBar": False}),
+            ]
         ),
         html.Div(id="interval-log", style={"margin-top": "15px"}),
     ]
@@ -262,6 +283,48 @@ def update_voltage_graph(freq, start, end, n_intervals):
         )
     )
     fig.update_layout(title="Voltage", template="plotly_dark")
+    return fig
+
+
+@app.callback(
+    Output("simulation-graph", "figure"),
+    [
+        Input("sim-hours", "value"),
+        Input("date-range", "start_date"),
+        Input("date-range", "end_date"),
+        Input("interval-component", "n_intervals"),
+    ],
+)
+def update_simulation_graph(sim_hours, start, end, n_intervals):
+    df = fetch_data()
+    start_dt = pd.to_datetime(start).tz_localize("America/Sao_Paulo")
+    end_dt = pd.to_datetime(end).tz_localize("America/Sao_Paulo") + pd.Timedelta(days=1) - pd.Timedelta(seconds=1)
+    df = df[(df["timestamp"] >= start_dt) & (df["timestamp"] <= end_dt)]
+    
+    # Calculate average power for estimating change in energy (in kWh)
+    avg_power = df["power_watts"].mean() if not df.empty else 0
+    additional_energy = sim_hours * (avg_power / 1000.0)
+    
+    df["simulated_energy"] = df["energy_kwh"] + additional_energy
+    
+    fig = go.Figure()
+    fig.add_trace(
+        go.Scatter(
+            x=df["timestamp"],
+            y=df["energy_kwh"],
+            mode="lines+markers",
+            name="Actual Energy (kWh)",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=df["timestamp"],
+            y=df["simulated_energy"],
+            mode="lines+markers",
+            name=f"Simulation ({'+' if sim_hours >= 0 else ''}{sim_hours}h)",
+        )
+    )
+    fig.update_layout(title="Energy Impact Simulation", template="plotly_dark")
     return fig
 
 
